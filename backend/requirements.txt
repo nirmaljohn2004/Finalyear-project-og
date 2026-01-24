@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-jose[cryptography]
+google-cloud-firestore
+google-generativeai
+openai
+pydantic
+pydantic-settings
+email-validator
+requests
+python-multipart
+passlib[bcrypt]
+firebase-admin
+

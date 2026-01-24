@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: ag_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - FIRESTORE_EMULATOR_HOST=firestore:8080
+      - GOOGLE_CLOUD_PROJECT=demo-project
+      - ENV=dev
+    depends_on:
+      - firestore
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    container_name: ag_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    stdin_open: true
+
+  firestore:
+    image: google/cloud-sdk:slim
+    container_name: ag_firestore
+    ports:
+      - "8080:8080"
+      - "4000:4000"
+    command: gcloud beta emulators firestore start --host-port=0.0.0.0:8080
+    environment:
+      - FIRESTORE_PROJECT_ID=demo-project
+
+volumes:
+  backend_data:
+  frontend_node_modules:
