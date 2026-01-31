@@ -58,8 +58,8 @@ class SkillIdentifierAgent(BaseAgent):
 
             return ordered_topics
             
-        except Exception as e:
-            self.log(f"Error generating path: {e} - Using heuristic fallback.")
-            # Heuristic Fallback: 
-            reversed_topics = list(reversed(available_topics))
-            return reversed_topics
+        except (json.JSONDecodeError, Exception) as e:
+            self.log(f"Error generating path: {e} - Using heuristic fallback (Mock/Error mode).")
+            # Heuristic Fallback: Reverse for demo or just return as is
+            # Ensure we return a list of strings
+            return list(reversed(available_topics))
