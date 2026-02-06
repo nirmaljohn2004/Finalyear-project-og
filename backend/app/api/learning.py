@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 # from google.cloud import firestore # access via Model or CRUD
 from app.api.auth import get_current_user
 from app.models.user import UserBase
-from app.agents.skill_identifier_agent import SkillIdentifierAgent
+from app.graph.workflow import app_graph
 from app.crud.learning import learning_path, topic_progress
 from app.crud.psychometric import psychometric_profile
 from app.crud.content import static_content, topic_quiz
@@ -45,10 +45,23 @@ def generate_learning_path(request: PathGenerationRequest, current_user: UserBas
     topic_titles = [t['title'] for t in request.availableTopics]
     
     # 3. Call Agent
-    agent = SkillIdentifierAgent()
+    # agent = SkillIdentifierAgent()
     quiz_results_dict = [r.dict() for r in request.quizResults]
     
-    ordered_titles = agent.process(quiz_results_dict, topic_titles)
+    # ordered_titles = agent.process(quiz_results_dict, topic_titles)
+    
+    graph_input = {
+        "payload": {
+            "quiz_results": quiz_results_dict,
+            "available_topics": topic_titles
+        },
+        "user_email": user_email,
+        "user_profile": {}, # Not strictly needed for skill node but good practice
+        "messages": []
+    }
+    
+    result = app_graph.invoke(graph_input)
+    ordered_titles = result.get("payload", {}).get("ordered_titles", topic_titles)
     
     # 4. Reconstruct full topic objects
     topic_map = {t['title']: t for t in request.availableTopics}
@@ -105,10 +118,11 @@ def get_learning_path(language: str, level: str, current_user: UserBase = Depend
             if raw_id:
                 t_id = str(raw_id)
             else:
-                t_id = topic.get("title") # Fallback, but likely the cause of bug if titles used
+                t_id = topic.get("title") 
                 
-            # Use CRUD to get progress
-            progress = topic_progress.get_progress(user_email, t_id)
+            # Use Unique ID for progress
+            unique_t_id = f"{language}_{t_id}"
+            progress = topic_progress.get_progress(user_email, unique_t_id)
             if progress:
                 topic["status"] = progress.get("status", TopicStatus.NOT_ATTEMPTED)
             else:
@@ -147,8 +161,8 @@ async def get_dashboard_summary(current_user: UserBase = Depends(get_current_use
         "rank": "Novice" if current_user.xp < 100 else "Apprentice"
     }
 
-from app.agents.content_generation_agent import ContentGenerationAgent
-from app.agents.evaluator_agent import EvaluatorAgent
+# from app.agents.content_generation_agent import ContentGenerationAgent
+# from app.agents.evaluator_agent import EvaluatorAgent
 
 class QuizSubmission(BaseModel):
     submission: List[Dict[str, Any]]
@@ -158,25 +172,19 @@ class QuizSubmission(BaseModel):
 async def get_topic_details(language: str, topic_id: str, current_user: UserBase = Depends(get_current_user)):
     user_email = current_user.email
     
-    # 1. Fetch Topic State
-    progress = topic_progress.get_progress(user_email, topic_id)
+    # 1. Fetch Topic State using Unique ID
+    unique_topic_id = f"{language}_{topic_id}"
+    progress = topic_progress.get_progress(user_email, unique_topic_id)
+    # Check simple ID as legacy fallback? No, let's enforce separation.
+    
     status = progress.get("status", TopicStatus.NOT_ATTEMPTED) if progress else TopicStatus.NOT_ATTEMPTED
         
-    print(f"Topic {topic_id} status for {user_email}: {status}")
+    print(f"Topic {topic_id} ({language}) status for {user_email}: {status}")
 
     # 2. Fetch Static Content from Firestore
-    # Try fetching by topic_id (assuming simple ID) or composite?
-    # Content is usually global, so topic_id should be unique or {language}_{topic_id}
-    # Let's try {language}_{topic_id} as ID for static content to be safe
     content_id = f"{language}_{topic_id}"
     topic_data_doc = static_content.get(content_id)
     
-    # Fallback to topic_id only if language prefixed failed (legacy support?) - No, stick to one schema.
-    # Fallback to topic_id only if language prefixed failed (legacy support?) - No, stick to one schema.
-    if not topic_data_doc:
-         # Try just topic_id
-         topic_data_doc = static_content.get(topic_id)
-
     # 3. Local Fallback if DB is empty
     if not topic_data_doc and language in TOPIC_DATA and topic_id in TOPIC_DATA[language]:
         topic_data_doc = TOPIC_DATA[language][topic_id]
@@ -204,9 +212,20 @@ async def get_topic_details(language: str, topic_id: str, current_user: UserBase
         user_profile_doc = psychometric_profile.get_by_user(user_email)
         user_profile = user_profile_doc if user_profile_doc else {}
         
-        agent = ContentGenerationAgent()
         try:
-            ai_content = agent.generate_content(topic_id, language, "Intermediate", user_profile) 
+            graph_input = {
+                "payload": {
+                     "topic_id": topic_id,
+                     "language": language,
+                     "level": "Intermediate", 
+                },
+                "user_profile": user_profile,
+                "user_email": user_email,
+                "messages": []
+            }
+            result_graph = app_graph.invoke(graph_input)
+            ai_content = result_graph.get("payload", {}).get("content", "")
+            
             content_to_show = ai_content
         except Exception as e:
             if "AI_QUOTA_EXCEEDED" in str(e):
@@ -224,10 +243,8 @@ The Code Examples and Quiz are still available!
             else:
                 print(f"Content generation failed: {e}")
                 content_to_show = static_text  
-                # status = TopicStatus.MASTERED # Don't auto-master on error
     elif status == TopicStatus.MASTERED:
         content_to_show = static_text
-    # else NOT_ATTEMPTED -> static_text
 
     return {
         "topic_id": topic_title,
@@ -251,33 +268,36 @@ async def submit_topic_quiz(
     user_email = current_user.email
     
     # 1. Evaluate
-    agent = EvaluatorAgent()
-    result = agent.evaluate(submission.submission, submission.totalQuestions)
+    graph_input = {
+        "payload": {
+            "submission": submission.submission,
+            "total_questions": submission.totalQuestions
+        },
+        "user_email": user_email,
+        "user_profile": {},
+        "messages": []
+    }
+    
+    graph_result = app_graph.invoke(graph_input)
+    result = graph_result.get("payload", {})
     
     # 2. Update DB via CRUD
-    # Result status string needs to map to Enum?
-    # Agent likely returns "MASTERED", "WEAK" strings. Safe to cast or lookup.
     new_status_str = result.get("status", "NOT_ATTEMPTED")
-    # Map to Enum
     try:
         new_status = TopicStatus(new_status_str)
     except ValueError:
-        new_status = TopicStatus.NOT_ATTEMPTED # Fallback
+        new_status = TopicStatus.NOT_ATTEMPTED 
     
-    # Using specific method in CRUD if complex logic needed, or just update_status
-    curr_progress = topic_progress.get_progress(user_email, topic_id)
+    unique_topic_id = f"{language}_{topic_id}"
+    curr_progress = topic_progress.get_progress(user_email, unique_topic_id)
     attempts = curr_progress.get("attempts", 0) + 1 if curr_progress else 1
     
-    # Upsert logic is handled in CRUD update_status?
-    # `update_status` in CRUD currently only handles status.
-    # We need to save attempts and score too. 
-    # Let's augment the update there or do a raw update via CRUD generic update/create methods
-    
-    doc_id = f"{user_email}_{topic_id}"
+    doc_id = f"{user_email}_{unique_topic_id}"
     update_data = {
         "user_id": user_email,
-        "topic_id": topic_id,
+        "topic_id": unique_topic_id, 
         "status": new_status,
+
         "last_score": result.get("score"),
         "attempts": attempts,
         "updatedAt": datetime.utcnow().isoformat()

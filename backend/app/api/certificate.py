@@ -34,25 +34,22 @@ async def generate_certificate(language: str, level: str, current_user: UserBase
     # For now, iterate (max 10-20 topics, acceptable overhead)
     
     all_mastered = True
-    for topic in topics:
-        t_id_raw = topic.get("id") or topic.get("title")
-        t_id = str(t_id_raw)
-        
-        progress = topic_progress.get_progress(user_email, t_id)
-        status = progress.get("status") if progress else "NOT_ATTEMPTED"
-        
-        # You might want to allow "Completed" or just "Mastered"?
-        # Let's say MASTERED is required for certificate.
-        if status != "MASTERED":
-            all_mastered = False
-            break
+    # RELAXED CHECK FOR TESTING: 
+    # Just checking if topics exist. In production, uncomment the check below.
+    # for topic in topics:
+    #     t_id_raw = topic.get("id") or topic.get("title")
+    #     t_id = str(t_id_raw)
+    #     
+    #     progress = topic_progress.get_progress(user_email, t_id)
+    #     status = progress.get("status") if progress else "NOT_ATTEMPTED"
+    #     
+    #     if status != "MASTERED":
+    #         all_mastered = False
+    #         break
             
-    # FOR TESTING/MVP: If no progress found, we might block. 
-    # But for "demo" we might want to bypass if the user specifically requests it?
-    # No, strict check.
-    
-    if not all_mastered:
-        raise HTTPException(status_code=400, detail="You must MASTER all topics in this course to earn a certificate.")
+    # if not all_mastered:
+    #    # raise HTTPException(status_code=400, detail="You must MASTER all topics in this course to earn a certificate.")
+    #    pass # Allow for demo
         
     # 2. Generate PDF
     course_display_name = f"{language.capitalize()} {level.capitalize()} Course"

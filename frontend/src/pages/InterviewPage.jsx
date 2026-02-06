@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, User, Bot, Play, XCircle, Sparkles, Mic, Monitor, Code2, Users, BrainCircuit } from 'lucide-react';
+import { Send, User, Bot, Play, XCircle, Sparkles, Mic, Monitor, Code2, Users, BrainCircuit, MicOff, Volume2, VolumeX } from 'lucide-react';
 import api from '../api/axios';
 import remarkGfm from 'remark-gfm';
+import useSpeechHandler from '../hooks/useSpeechHandler';
+import useTextToSpeech from '../hooks/useTextToSpeech';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const TOPICS = [
     { id: 'Python', icon: <Code2 />, color: 'text-yellow-500', bg: 'bg-yellow-50' },
@@ -28,6 +31,25 @@ const InterviewPage = () => {
     const [isTyping, setIsTyping] = useState(false); // Fake typing indicator
     const messagesEndRef = useRef(null);
 
+    // Voice State
+    const [voiceMode, setVoiceMode] = useState(false); // Default to voice DISABLED (opt-in)
+    const { isListening, startListening, stopListening, hasSupport: hasStt } = useSpeechHandler((transcript) => {
+        setInput(transcript);
+        // Optional: auto-send after a pause could go here
+    });
+    const { isSpeaking, speak, stop: stopSpeaking, hasSupport: hasTts } = useTextToSpeech();
+
+    // Toggle Mic
+    const toggleListening = () => {
+        if (isListening) {
+            stopListening();
+        } else {
+            // Stop TTS if user wants to speak
+            stopSpeaking();
+            startListening();
+        }
+    };
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
@@ -41,10 +63,16 @@ const InterviewPage = () => {
         try {
             const res = await api.post('/interview/start', { topic, difficulty });
             setSessionId(res.data.session_id);
+            const opening = res.data.message;
             setMessages([
-                { id: Date.now(), role: 'assistant', content: res.data.message }
+                { id: Date.now(), role: 'assistant', content: opening }
             ]);
             setMode('session');
+
+            // Auto-speak opening message if voice mode is on
+            if (voiceMode) {
+                speak(opening);
+            }
         } catch (err) {
             console.error("Failed to start interview", err);
             alert("Failed to start interview. Please try again.");
@@ -62,9 +90,18 @@ const InterviewPage = () => {
         setIsTyping(true);
 
         try {
+            // Stop listening while AI thinks
+            stopListening();
+
             const res = await api.post('/interview/chat', { session_id: sessionId, message: userMsg });
             setIsTyping(false);
-            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: res.data.message }]);
+            const aiMsg = res.data.message;
+            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: aiMsg }]);
+
+            // Speak AI response
+            if (voiceMode) {
+                speak(aiMsg);
+            }
         } catch (err) {
             console.error("Failed to send message", err);
             setIsTyping(false);
@@ -81,6 +118,8 @@ const InterviewPage = () => {
 
     const handleEndSession = () => {
         if (window.confirm("Are you sure you want to end the interview?")) {
+            stopSpeaking();
+            stopListening();
             setMode('setup');
             setMessages([]);
             setSessionId(null);
@@ -215,14 +254,34 @@ const InterviewPage = () => {
                             </div>
                         </div>
                     </div>
-                    <button
-                        onClick={handleEndSession}
-                        className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-xs"
-                        title="End Session"
-                    >
-                        <span>End Session</span>
-                        <XCircle size={16} className="group-hover:rotate-90 transition-transform" />
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                        {/* Voice Toggle */}
+                        <button
+                            onClick={() => {
+                                const newMode = !voiceMode;
+                                setVoiceMode(newMode);
+                                if (!newMode) stopSpeaking();
+                            }}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border font-bold text-xs ${voiceMode
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/20'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                }`}
+                            title={voiceMode ? "Disable Voice Mode" : "Enable Voice Mode"}
+                        >
+                            {voiceMode ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                            <span>{voiceMode ? "Voice ON" : "Voice OFF"}</span>
+                        </button>
+
+                        <button
+                            onClick={handleEndSession}
+                            className="group flex items-center gap-2 px-3 py-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-all font-bold text-xs"
+                            title="End Session"
+                        >
+                            <span>End Session</span>
+                            <XCircle size={16} className="group-hover:rotate-90 transition-transform" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Chat Area */}
@@ -271,16 +330,58 @@ const InterviewPage = () => {
                     <div ref={messagesEndRef} />
                 </div>
 
+                {/* Audio Visualizer Overlay */}
+                <AnimatePresence>
+                    {(isListening || isSpeaking) && voiceMode && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            className="absolute bottom-[90px] left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md text-white px-6 py-2 rounded-full shadow-xl z-20 flex items-center gap-4 border border-white/10"
+                        >
+                            <div className="flex items-center gap-1 h-4">
+                                {/* Fake waveform animation */}
+                                {[1, 2, 3, 4, 5, 4, 3, 2, 1].map((h, i) => (
+                                    <motion.div
+                                        key={i}
+                                        animate={{ height: isSpeaking ? [4, 16, 4] : [4, 12, 4] }}
+                                        transition={{
+                                            repeat: Infinity,
+                                            duration: isSpeaking ? 0.5 : 1,
+                                            delay: i * 0.1,
+                                            ease: "easeInOut"
+                                        }}
+                                        className={`w-1 rounded-full ${isSpeaking ? 'bg-blue-400' : 'bg-red-400'}`}
+                                    />
+                                ))}
+                            </div>
+                            <span className="text-xs font-bold tracking-wide">
+                                {isSpeaking ? "AI Speaking..." : "Listening..."}
+                            </span>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
                 {/* Input Area */}
                 <div className="p-4 bg-white border-t border-slate-100 shrink-0 z-10">
                     <div className="relative max-w-4xl mx-auto flex gap-3 items-end">
-                        <div className="flex-1 bg-slate-50 border border-slate-200 focus-within:ring-4 focus-within:ring-blue-500/10 focus-within:border-blue-500 transition-all rounded-[1.25rem] overflow-hidden shadow-inner">
+                        <div className="flex-1 bg-slate-50 border border-slate-200 focus-within:ring-4 focus-within:ring-blue-500/10 focus-within:border-blue-500 transition-all rounded-[1.25rem] overflow-hidden shadow-inner flex items-center">
+                            {/* Mic Button inside Input */}
+                            <button
+                                onClick={toggleListening}
+                                className={`p-3 ml-1 rounded-full transition-all ${isListening ? 'bg-red-50 text-red-600 animate-pulse' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50'}`}
+                                disabled={!voiceMode || (!hasStt && !hasTts)} // Disable if API not supported
+                                title="Toggle Microphone"
+                            >
+                                {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+                            </button>
+
                             <textarea
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyPress}
-                                placeholder="Type your answer here..."
-                                className="w-full bg-transparent border-none px-5 py-3 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:ring-0 resize-none h-[56px] custom-scrollbar focus:outline-none"
+                                placeholder={isListening ? "Listening..." : "Type your answer here..."}
+                                className="w-full bg-transparent border-none px-3 py-3 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:ring-0 resize-none h-[56px] custom-scrollbar focus:outline-none"
                             />
                         </div>
                         <button

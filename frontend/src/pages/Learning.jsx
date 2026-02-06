@@ -7,8 +7,12 @@ const Learning = () => {
     const navigate = useNavigate();
 
     const handleLanguageSelect = (lang) => {
-        localStorage.setItem('selectedLanguage', lang);
-        navigate(`/learning/${lang}`);
+        const savedLevel = localStorage.getItem(`lastLevel_${lang}`);
+        if (savedLevel) {
+            navigate(`/learning/${lang}?level=${savedLevel}`);
+        } else {
+            navigate(`/learning/${lang}`);
+        }
     };
 
     return (

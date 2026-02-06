@@ -2,10 +2,17 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import uuid
-from app.agents.interview_agent import InterviewAgent, InterviewContext
+from app.graph.workflow import app_graph
+from langchain_core.messages import HumanMessage, AIMessage
+
+class InterviewContext(BaseModel):
+    topic: str
+    difficulty: str
+    history: List[Dict[str, str]] = []
 
 router = APIRouter()
-agent = InterviewAgent()
+# agent = InterviewAgent() - Removed logic
+
 
 # In-memory session store for MVP
 # In production, use Redis or Database
@@ -30,8 +37,25 @@ class MessageResponse(BaseModel):
 async def start_interview(req: StartInterviewRequest):
     session_id = str(uuid.uuid4())
     
-    # Generate opening message
-    opening_message = agent.start_interview(req.topic, req.difficulty)
+    # Generate opening message via Graph
+    # The Supervisor will route to InterviewNode because of payload 'interview_topic'
+    graph_input = {
+        "payload": {
+            "interview_topic": req.topic,
+            "difficulty": req.difficulty
+        },
+        "messages": [],
+        "user_profile": {},
+        "user_email": "guest_interviewer"
+    }
+    
+    result = app_graph.invoke(graph_input)
+    # The InterviewNode adds the response to messages
+    if result["messages"]:
+        opening_message = result["messages"][-1].content
+    else:
+        opening_message = "Hello, I am ready to interview you."
+        
     
     # Init context
     context = InterviewContext(
@@ -53,11 +77,33 @@ async def chat_interview(req: InterviewMessageRequest):
     
     context = sessions[session_id]
     
-    # Add user message to history
-    # context.history.append({"role": "user", "content": req.message}) # We do this in the agent loop logically, but let's persist it
+    # Reconstruct history for LangGraph
+    history_msgs = []
+    for msg in context.history:
+        if msg["role"] == "user":
+            history_msgs.append(HumanMessage(content=msg["content"]))
+        else:
+            history_msgs.append(AIMessage(content=msg["content"]))
+            
+    # Add current user message
+    history_msgs.append(HumanMessage(content=req.message))
     
-    # Get response
-    ai_response = agent.chat(context, req.message)
+    # Invoke Graph
+    # Supervisor will route to InterviewNode because of implicit context? 
+    # Or should we force it via payload? 
+    # Since we are in an "/interview" endpoint, use Payload to force routing!
+    graph_input = {
+        "messages": history_msgs,
+        "payload": {
+             "interview_topic": context.topic, # Force routing to interview node
+             "difficulty": context.difficulty
+        },
+        "user_profile": {},
+        "user_email": "guest_interviewer"
+    }
+    
+    result = app_graph.invoke(graph_input)
+    ai_response = result["messages"][-1].content if result["messages"] else "..."
     
     # Update history
     context.history.append({"role": "user", "content": req.message})

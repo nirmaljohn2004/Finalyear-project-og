@@ -3,6 +3,7 @@ import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import QuestionCard from '../components/QuestionCard';
 import { beginnerQuestions } from '../data/quiz/beginnerQuestions';
 import { intermediateQuestions } from '../data/quiz/intermediateQuestions';
+import { expertQuestions } from '../data/quiz/expertQuestions';
 import { javaBeginnerQuestions } from '../data/quiz/javaBeginnerQuestions';
 import { javaIntermediateQuestions } from '../data/quiz/javaIntermediateQuestions';
 import { javaExpertQuestions } from '../data/quiz/javaExpertQuestions';

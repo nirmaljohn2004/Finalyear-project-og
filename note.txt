@@ -1,0 +1,17 @@
+frontend
+
+cd 'c:\Btech\antigravity\frontend'
+npm install
+npm run dev
+
+
+backend
+cd backend
+venv\Scripts\activate
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+gemini ai
+
+key1=AIzaSyAZsNn8HieXDfBHalEKk7APpxgEeaBNnO0
+key2=AIzaSyA7aKvYq12huNbrna6PPekakyOuk9jVxYg
