@@ -21,6 +21,18 @@ def content_node(state: AgentState) -> Dict[str, Any]:
     difficulty_comfort = user_profile.get('difficulty_comfort', 'Medium')
     feedback_style = user_profile.get('feedback_style', 'Hints')
 
+    # [RAG INTEGRATION]
+    # Fetch relevant curriculum content from ChromaDB
+    rag_context = ""
+    try:
+        from app.core.rag import rag_system
+        # Query using the topic title + language
+        query = f"{topic} in {language}"
+        rag_context = rag_system.query_context(query, n_results=3)
+        print(f"DEBUG: Content RAG Context: {len(rag_context)} chars")
+    except Exception as e:
+        print(f"WARNING: RAG Query Failed: {e}")
+
     prompt = f"""
     You are an expert programming tutor.
     The student is struggling with the topic: "{topic}" in {language} ({level} level).
@@ -30,6 +42,9 @@ def content_node(state: AgentState) -> Dict[str, Any]:
     - **Pace:** {learning_speed}
     - **Preferred Difficulty:** {difficulty_comfort}
     - **Feedback Preference:** {feedback_style}
+    
+    **Official Course Curriculum (Use this as the source of truth):**
+    {rag_context}
     
     Generate a concise but comprehensive lesson to help them master this concept.
     

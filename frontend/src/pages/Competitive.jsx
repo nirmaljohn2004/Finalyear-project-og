@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Zap, Code, Swords, Users, Clock, Target, ArrowRight, Plus, Star } from 'lucide-react';
+import api from '../api/axios';
 
 const Competitive = () => {
     const navigate = useNavigate();
@@ -33,11 +34,28 @@ const Competitive = () => {
         { rank: 5, user: "SystemShock", elo: 2310, change: "+0" },
     ];
 
-    const problems = [
-        { id: 201, title: "Two Sum", difficulty: "Easy", acceptance: "95%", tags: ["Array", "Hash Table"], url: "https://leetcode.com/problems/two-sum/" },
-        { id: 202, title: "Longest Substring Without Repeating Characters", difficulty: "Medium", acceptance: "76%", tags: ["String", "Sliding Window"], url: "https://leetcode.com/problems/longest-substring-without-repeating-characters/" },
-        { id: 203, title: "Median of Two Sorted Arrays", difficulty: "Hard", acceptance: "42%", tags: ["Binary Search"], url: "https://leetcode.com/problems/median-of-two-sorted-arrays/" },
-    ];
+    const [problems, setProblems] = useState([]);
+
+    useEffect(() => {
+        const fetchProblems = async () => {
+            try {
+                const res = await api.get('/competitive/problems');
+                // Map backend data to UI format
+                const formattedProblems = res.data.map(p => ({
+                    id: p.id,
+                    title: p.title,
+                    difficulty: p.difficulty,
+                    acceptance: "TBD",
+                    tags: p.tags || ["Algorithm"],
+                    url: `/competitive/problem/${p.id}`
+                }));
+                setProblems(formattedProblems);
+            } catch (err) {
+                console.error("Failed to fetch competitive problems", err);
+            }
+        };
+        fetchProblems();
+    }, []);
 
     const getDifficultyColor = (diff) => {
         if (diff === "Easy") return "text-emerald-600 bg-emerald-50 border-emerald-200";

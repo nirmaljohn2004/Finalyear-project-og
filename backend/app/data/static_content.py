@@ -216,7 +216,11 @@ else:
 print(f"Your grade is: {grade}")
 """
             ],
-            "practice_problem": "Write a program that takes three numbers as input and prints the largest one.",
+            "practice_problem": "Write a program that takes three numbers as input (on separate lines) and prints the largest one.",
+            "test_cases": [
+                {"input": "10\n20\n30", "expected_output": "30"},
+                {"input": "50\n10\n20", "expected_output": "50"}
+            ],
             "quiz": [
                 {
                     "id": 301,
@@ -284,7 +288,11 @@ for f in ["Apple", "Banana", "Cherry"]:
         break
 """
             ],
-            "practice_problem": "Write a loop that prints all even numbers between 1 and 20.",
+            "practice_problem": "Write a program that takes an integer N as input and prints all even numbers from 1 to N (inclusive, one per line).",
+            "test_cases": [
+                 {"input": "10", "expected_output": "2\n4\n6\n8\n10"},
+                 {"input": "5", "expected_output": "2\n4"}
+            ],
             "quiz": [
                 {
                     "id": 401,

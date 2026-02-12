@@ -37,7 +37,12 @@ const InterviewPage = () => {
         setInput(transcript);
         // Optional: auto-send after a pause could go here
     });
-    const { isSpeaking, speak, stop: stopSpeaking, hasSupport: hasTts } = useTextToSpeech();
+    const { isSpeaking, speak, speakQueue, stop: stopSpeaking, hasSupport: hasTts } = useTextToSpeech();
+
+    // WebSocket Refs
+    const ws = useRef(null);
+    const speechBuffer = useRef("");
+    const currentResponseRef = useRef("");
 
     // Toggle Mic
     const toggleListening = () => {
@@ -57,6 +62,81 @@ const InterviewPage = () => {
     useEffect(() => {
         scrollToBottom();
     }, [messages, isTyping]);
+
+    // WebSocket Management
+    useEffect(() => {
+        if (voiceMode && !ws.current) {
+            // Connect
+            const clientId = Date.now().toString();
+            const wsUrl = `ws://localhost:8000/api/v1/ws/ws/${clientId}`;
+            const socket = new WebSocket(wsUrl);
+
+            socket.onopen = () => {
+                // Connected
+            };
+
+            socket.onmessage = (event) => {
+                const chunk = event.data;
+
+                if (chunk === "<<END>>") {
+                    // End of stream
+                    setIsTyping(false);
+                    // Speak any remaining buffer
+                    if (speechBuffer.current.trim()) {
+                        speakQueue(speechBuffer.current);
+                        speechBuffer.current = "";
+                    }
+                    return;
+                }
+
+                // Update UI
+                currentResponseRef.current += chunk;
+                setMessages(prev => {
+                    const newMsgs = [...prev];
+                    const lastMsg = newMsgs[newMsgs.length - 1];
+                    if (lastMsg && lastMsg.role === 'assistant' && lastMsg.id === 'streaming') {
+                        lastMsg.content = currentResponseRef.current;
+                    }
+                    return newMsgs;
+                });
+
+                // TTS Queuing
+                speechBuffer.current += chunk;
+                // Simple sentence detection
+                if (chunk.match(/[.?!]/)) {
+                    const sentences = speechBuffer.current.split(/([.?!]+)/);
+                    if (sentences.length > 1) {
+                        // We have at least one complete sentence
+                        const completeSentence = sentences[0] + sentences[1];
+                        speakQueue(completeSentence);
+
+                        // Keep the rest in buffer
+                        speechBuffer.current = sentences.slice(2).join("");
+                    }
+                }
+            };
+
+            socket.onerror = (error) => {
+                console.error("❌ WS Error:", error);
+            };
+
+            socket.onclose = (event) => {
+                ws.current = null;
+            };
+
+            ws.current = socket;
+        } else if (!voiceMode && ws.current) {
+            // Disconnect
+            ws.current.close();
+            ws.current = null;
+        }
+
+        return () => {
+            if (ws.current) {
+                ws.current.close();
+            }
+        };
+    }, [voiceMode]);
 
     const handleStart = async () => {
         setLoading(true);
@@ -89,23 +169,38 @@ const InterviewPage = () => {
         setMessages(prev => [...prev, { id: Date.now(), role: 'user', content: userMsg }]);
         setIsTyping(true);
 
-        try {
-            // Stop listening while AI thinks
-            stopListening();
+        // Stop listening while AI thinks
+        stopListening();
 
-            const res = await api.post('/interview/chat', { session_id: sessionId, message: userMsg });
-            setIsTyping(false);
-            const aiMsg = res.data.message;
-            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: aiMsg }]);
+        if (voiceMode && ws.current && ws.current.readyState === WebSocket.OPEN) {
+            // WebSocket Stream Mode
+            currentResponseRef.current = "";
+            speechBuffer.current = "";
 
-            // Speak AI response
-            if (voiceMode) {
-                speak(aiMsg);
+            // Add placeholder for streaming message
+            setMessages(prev => [...prev, { id: 'streaming', role: 'assistant', content: "..." }]);
+
+            ws.current.send(JSON.stringify({
+                message: userMsg,
+                history: messages.map(m => ({ role: m.role, content: m.content }))
+            }));
+        } else {
+            // Standard HTTP Mode
+            try {
+                const res = await api.post('/interview/chat', { session_id: sessionId, message: userMsg });
+                setIsTyping(false);
+                const aiMsg = res.data.message;
+                setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: aiMsg }]);
+
+                // Speak AI response
+                if (voiceMode) {
+                    speak(aiMsg);
+                }
+            } catch (err) {
+                console.error("Failed to send message", err);
+                setIsTyping(false);
+                setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: "⚠️ Connection Error: Please try again." }]);
             }
-        } catch (err) {
-            console.error("Failed to send message", err);
-            setIsTyping(false);
-            setMessages(prev => [...prev, { id: Date.now() + 1, role: 'assistant', content: "⚠️ Connection Error: Please try again." }]);
         }
     };
 
@@ -264,8 +359,8 @@ const InterviewPage = () => {
                                 if (!newMode) stopSpeaking();
                             }}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all border font-bold text-xs ${voiceMode
-                                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/20'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/20'
+                                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
                                 }`}
                             title={voiceMode ? "Disable Voice Mode" : "Enable Voice Mode"}
                         >

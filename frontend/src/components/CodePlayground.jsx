@@ -3,7 +3,7 @@ import Editor from '@monaco-editor/react';
 import { Play, RotateCcw, Copy, Check } from 'lucide-react';
 import api from '../api/axios';
 
-const CodePlayground = ({ initialCode = '', language = 'python', onSubmit = null }) => {
+const CodePlayground = ({ initialCode = '', language = 'python', onSubmit = null, testCases = null }) => {
     const [code, setCode] = useState(initialCode);
 
     // Update local state if prop changes (e.g. topic navigation)
@@ -11,6 +11,7 @@ const CodePlayground = ({ initialCode = '', language = 'python', onSubmit = null
         setCode(initialCode);
     }, [initialCode]);
 
+    const [testResults, setTestResults] = useState(null);
     const [output, setOutput] = useState('');
     const [isRunning, setIsRunning] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
@@ -18,14 +19,19 @@ const CodePlayground = ({ initialCode = '', language = 'python', onSubmit = null
     const handleRun = async () => {
         setIsRunning(true);
         setOutput("Running...");
+        setTestResults(null);
         try {
             const res = await api.post('/execution/execute', {
                 language: language.toLowerCase(),
-                code: code
+                code: code,
+                test_cases: testCases // Pass test cases if available
             });
 
             // Format output based on exit code
-            if (res.data.exit_code === 0) {
+            if (res.data.is_test_run) {
+                setTestResults(res.data);
+                setOutput(""); // Clear raw output to show structured results
+            } else if (res.data.exit_code === 0) {
                 setOutput(res.data.output || "Program finished with no output.");
             } else {
                 setOutput(`Error:\n${res.data.stderr}`);
@@ -95,7 +101,7 @@ const CodePlayground = ({ initialCode = '', language = 'python', onSubmit = null
                         <span className="text-base">⚡</span> Console Output
                     </span>
                     <button
-                        onClick={() => setOutput('')}
+                        onClick={() => { setOutput(''); setTestResults(null); }}
                         className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
                         title="Clear Console"
                     >
@@ -103,9 +109,37 @@ const CodePlayground = ({ initialCode = '', language = 'python', onSubmit = null
                     </button>
                 </div>
                 <div className="flex-1 p-4 font-mono text-sm overflow-auto text-gray-700 whitespace-pre-wrap bg-white">
-                    {output || <span className="text-gray-400 italic flex items-center gap-2 opacity-50">
-                        <Play size={14} /> Run code to see output...
-                    </span>}
+                    {testResults ? (
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                                <span className="font-bold text-gray-900">Test Results</span>
+                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${testResults.passed_count === testResults.total_count ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                    {testResults.passed_count}/{testResults.total_count} Passed
+                                </span>
+                            </div>
+                            {testResults.test_results.map((res, idx) => (
+                                <div key={idx} className={`p-3 rounded-lg border ${res.passed ? 'border-green-100 bg-green-50/50' : 'border-red-100 bg-red-50/50'}`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={`flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${res.passed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                                            {res.passed ? '✓' : '✗'}
+                                        </span>
+                                        <span className="text-xs font-bold text-gray-500 uppercase">Test Case {idx + 1}</span>
+                                    </div>
+                                    {!res.passed && (
+                                        <div className="mt-2 text-xs space-y-1 pl-7">
+                                            <div className="text-gray-500">Input: <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">{res.input.replace(/\n/g, '↵')}</span></div>
+                                            <div className="text-gray-500">Expected: <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">{res.expected_output.replace(/\n/g, '↵')}</span></div>
+                                            <div className="text-gray-500">Actual: <span className="font-mono text-red-700 bg-red-50 px-1 rounded">{res.actual_output.replace(/\n/g, '↵')}</span></div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        output || <span className="text-gray-400 italic flex items-center gap-2 opacity-50">
+                            <Play size={14} /> Run code to see output...
+                        </span>
+                    )}
                 </div>
                 <div className="p-4 border-t border-gray-100 bg-white flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
                     <button

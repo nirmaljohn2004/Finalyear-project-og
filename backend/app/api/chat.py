@@ -90,7 +90,7 @@ def chat_endpoint(request: ChatRequest, current_user: UserBase = Depends(get_cur
             "messages": history_msgs,
             "user_profile": user_profile,
             "user_email": current_user.email,
-            "payload": {} # No specific payload, purely chat
+            "payload": {} 
         }
         
         result = app_graph.invoke(initial_state)

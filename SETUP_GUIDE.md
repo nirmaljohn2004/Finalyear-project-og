@@ -143,3 +143,26 @@ The frontend will start (usually at `http://localhost:5173`). Open this link in 
 - **Frontend API errors?**
   - Ensure the backend is running on `localhost:8000`.
   - Check browser console (F12) for network errors.
+
+- **"Resumable" Badge Not Showing?**
+  - The badge only appears if you have a generated learning path in the database.
+  - Try starting the quiz for that level to generate the path.
+  - If it persists, try logging out and logging back in to refresh your session.
+
+- **401 Unauthorized during Quiz Submission**:
+  - Your session token may have expired. Logout and Login again.
+
+---
+
+## 5. Architecture Overview (New)
+
+### Multi-Agent System (LangGraph)
+This project uses a graph-based AI architecture located in `backend/app/graph/`.
+- **Supervisor**: Routes requests based on intent.
+- **Skill Agent**: Reorders topics based on quiz performance.
+- **Content Agent**: Generates lessons adapted to your psychometric profile.
+
+### Certificate Generation
+Certificates are generated as PDFs using `reportlab`.
+- Ensure `reportlab` is installed (`pip install reportlab`).
+- Certificates require at least "Attempting" the course (Strict 100% mastery check is currently relaxed for testing).

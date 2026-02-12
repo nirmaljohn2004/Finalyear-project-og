@@ -22,6 +22,8 @@ def chat_node(state: AgentState) -> Dict[str, Any]:
     - Goal Orientation: {user_profile.get('goal_orientation', 'Projects')}
     """
     
+    payload = state.get("payload", {})
+    
     system_prompt = f"""
     You are an AI Tutor on an educational platform.
     {profile_context}

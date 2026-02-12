@@ -49,6 +49,9 @@ app.include_router(interview.router, prefix="/api/v1/interview", tags=["intervie
 from app.api import certificate
 app.include_router(certificate.router, prefix="/api/v1/certificate", tags=["certificate"])
 
+from app.api import ws_interview
+app.include_router(ws_interview.router, prefix="/api/v1/ws", tags=["websocket"])
+
 from fastapi.staticfiles import StaticFiles
 import os
 

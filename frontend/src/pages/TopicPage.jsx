@@ -156,7 +156,9 @@ const TopicPage = () => {
                                                 {children}
                                             </code>
                                         )
-                                    }
+                                    },
+                                    // Fix validateDOMNesting warning: Render paragraphs as divs if necessary
+                                    p: ({ node, ...props }) => <div className="mb-4 leading-relaxed" {...props} />
                                 }}
                             >
                                 {topicContent.content}
@@ -185,6 +187,28 @@ const TopicPage = () => {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Coding Challenge Section */}
+                    {topicContent.practice_problem && (
+                        <div className="bg-indigo-50/50 p-6 md:p-10 border-t border-gray-100">
+                            <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-3">
+                                <span className="text-indigo-600">⚡</span> Coding Challenge
+                            </h2>
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-indigo-100 mb-6">
+                                <h3 className="font-bold text-gray-900 mb-2">Problem Statement</h3>
+                                <p className="text-gray-700 leading-relaxed font-medium">
+                                    {topicContent.practice_problem}
+                                </p>
+                            </div>
+                            <div className="rounded-xl overflow-hidden shadow-xl ring-1 ring-gray-200">
+                                <CodePlayground
+                                    initialCode={`# Write your solution here\n`}
+                                    language={language}
+                                    testCases={topicContent.test_cases}
+                                />
                             </div>
                         </div>
                     )}

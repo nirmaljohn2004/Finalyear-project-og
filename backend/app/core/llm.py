@@ -52,14 +52,72 @@ class LLMClient:
         # Convert history validation to a prompt string
         # Gemini does support history objects, but string concatenation is robust for basic usage
         full_prompt = ""
+        
+        # [RAG INTEGRATION]
+        # Currently, the 'messages' list is just Role: Content.
+        # We need a way to inject system instructions or context.
+        # Since we are using string concatenation for Gemini Flash, we can prepend it.
+        
+        # Check if the first message is a System Message (we might add this via graph)
+        # OR just check if 'rag_context' is in the message history as a special field 
+        # (but LLMClient expects standard list dicts).
+        
+        # Better approach: The caller (graph node) should have already inserted a logical System Message.
+        # But for simplicity in this MVP migration:
+        # Let's inspect if any message has 'context' key (custom) or if we just rely on the prompt construction in the Graph Node?
+        # The `chat.py` passes `payload`. The Graph Node constructs the prompt.
+        # So we actually need to update the GRAPH NODE, not just LLMClient, unless LLMClient controls the formatting.
+        
+        # Wait, LLMClient.chat_completion iterates messages. 
+        # If we added a "system" role message in the graph, it would work here?
+        # Gemini Flash supports "model" role? or just "user"/"model".
+        # Let's map "system" to just text at the top.
+        
+        for msg in messages:
+            role = msg.get("role", "user").lower()
+            content = msg.get("content", "")
+            
+            if role == "system":
+                full_prompt += f"System: {content}\n"
+            elif role == "user":
+                full_prompt += f"\nUSER: {content}"
+            elif role == "assistant" or role == "model":
+                full_prompt += f"\nASSISTANT: {content}"
+            else:
+                full_prompt += f"\n{role.upper()}: {content}"
+        
+        full_prompt += "\nASSISTANT: "
+        
+        return self.generate(full_prompt)
+
+    def stream_chat_completion(self, messages: List[Dict[str, str]]):
+        """
+        Yields chunks of text for real-time streaming.
+        """
+        if not self.client_ready:
+            # Mock stream
+            last_msg = messages[-1].get("content", "")
+            response = self._mock_response(last_msg)
+            for word in response.split():
+                yield word + " "
+            return
+
+        full_prompt = ""
         for msg in messages:
             role = msg.get("role", "user").upper()
             content = msg.get("content", "")
             full_prompt += f"\n{role}: {content}"
         
         full_prompt += "\nASSISTANT: "
-        
-        return self.generate(full_prompt)
+
+        try:
+            response = self.model.generate_content(full_prompt, stream=True)
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+        except Exception as e:
+            print(f"Stream Error: {e}")
+            yield " Error generating response."
 
     def _mock_response(self, prompt: str) -> str:
         """

@@ -11,4 +11,10 @@ requests
 python-multipart
 passlib[bcrypt]
 firebase-admin
+chromadb
+sentence-transformers
+langchain
+langgraph
+langchain-community
+langchain-google-genai
 

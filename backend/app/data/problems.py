@@ -37,5 +37,23 @@ PROBLEMS_DATA = {
             "python": "class Solution:\n    def lengthOfLongestSubstring(self, s: str) -> int:\n        pass\n\n# Driver Code\nif __name__ == '__main__':\n    sol = Solution()\n    print(sol.lengthOfLongestSubstring('abcabcbb'))",
              "java": "public class Main {\n    public static void main(String[] args) {\n        Solution sol = new Solution();\n        System.out.println(sol.lengthOfLongestSubstring(\"abcabcbb\"));\n    }\n}\n\nclass Solution {\n    public int lengthOfLongestSubstring(String s) {\n        return 0;\n    }\n}"
         }
+    },
+    "203": {
+        "id": 203,
+        "title": "Median of Two Sorted Arrays",
+        "difficulty": "Hard",
+        "description": "Given two sorted arrays `nums1` and `nums2` of size `m` and `n` respectively, return the **median** of the two sorted arrays.\n\nThe overall run time complexity should be `O(log (m+n))`.",
+        "examples": [
+            "Input: nums1 = [1,3], nums2 = [2]\nOutput: 2.00000\nExplanation: merged array = [1,2,3] and median is 2.",
+            "Input: nums1 = [1,2], nums2 = [3,4]\nOutput: 2.50000\nExplanation: merged array = [1,2,3,4] and median is (2 + 3) / 2 = 2.5."
+        ],
+        "test_cases": [
+            {"input": "nums1 = [1,3], nums2 = [2]", "expected": "2.0"},
+            {"input": "nums1 = [1,2], nums2 = [3,4]", "expected": "2.5"}
+        ],
+        "starter_code": {
+            "python": "from typing import List\n\nclass Solution:\n    def findMedianSortedArrays(self, nums1: List[int], nums2: List[int]) -> float:\n        pass\n\n# Driver Code\nif __name__ == '__main__':\n    sol = Solution()\n    print(sol.findMedianSortedArrays([1,3], [2]))",
+            "java": "public class Main {\n    public static void main(String[] args) {\n        Solution sol = new Solution();\n        System.out.println(sol.findMedianSortedArrays(new int[]{1,3}, new int[]{2}));\n    }\n}\n\nclass Solution {\n    public double findMedianSortedArrays(int[] nums1, int[] nums2) {\n        return 0.0;\n    }\n}"
+        }
     }
 }
