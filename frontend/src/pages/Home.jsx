@@ -41,16 +41,15 @@ const Home = () => {
 
     // Dynamic Stats
     const stats = [
-        { label: 'Topics Mastered', value: '12', image: trophy3d, barColor: 'bg-yellow-400' }, // Mock
+        { label: 'Topics Mastered', value: `${summary?.mastered_topics || 0}`, image: trophy3d, barColor: 'bg-yellow-400' },
         { label: 'Current Streak', value: `${summary?.streak || 0}`, image: fire3d, barColor: 'bg-orange-500' },
         { label: 'Current Rank', value: summary?.rank || 'Novice', image: globe3d, barColor: 'bg-blue-500' },
         { label: 'Total XP', value: `${summary?.xp || 0}`, image: lightning3d, barColor: 'bg-purple-500' },
     ];
 
-    const activities = [
-        { title: 'Completed "Python Basics"', time: '2 hours ago', icon: '✅', color: 'bg-green-500' },
-        { title: 'Scored 100% in Quiz', time: 'Yesterday', icon: '🎯', color: 'bg-blue-500' },
-        { title: 'Started "Java Stream API"', time: '2 days ago', icon: '🚀', color: 'bg-purple-500' },
+    // Dynamic Recent Activities from backend
+    const activities = summary?.recent_activities || [
+        { title: 'No recent activity', time: '', icon: '📝', color: 'bg-gray-500' }
     ];
 
     return (

@@ -149,16 +149,116 @@ async def reset_learning_path(language: str, level: str, current_user: UserBase 
 
 @router.get("/dashboard/summary")
 async def get_dashboard_summary(current_user: UserBase = Depends(get_current_user)):
-    # Calculate additional stats if needed, e.g., mastered topics count
-    # For now, just return what's on the user profile
+    # Dynamic Progress Calculation
+    # 1. Get total topics count (Estimate from static content)
+    total_topics = 0
+    for lang in TOPIC_DATA:
+        total_topics += len(TOPIC_DATA[lang])
+    
+    if total_topics == 0: total_topics = 30 # Fallback 15 python + 15 java
+
+    # 2. Get user's mastered topics
+    # We need to query topic_progress for this user. 
+    # Since topic_progress is a collection, we can query by user_id and status.
+    # But crud might not have count method exposed directly.
+    # Let's use direct firestore for efficiency or add method to crud.
+    from app.db.firestore import get_db
+    db = get_db()
+    progress_ref = db.collection("topicProgress") # CamelCase to match CRUD
+    
+    # Simple query should work now if we check for both Enum/String
+    # But let's stick to the robust iteration since we know data is there.
+    all_progress_query = progress_ref.where("user_id", "==", current_user.email)
+    docs = list(all_progress_query.stream())
+    
+    mastered_count = 0
+    for d in docs:
+        data = d.to_dict()
+        status = data.get("status")
+        if status == "MASTERED" or status == TopicStatus.MASTERED or status == "TopicStatus.MASTERED":
+            mastered_count += 1
+            
+    progress_percent = int((mastered_count / total_topics) * 100) if total_topics > 0 else 0
+    
+    # Dynamic Rank Logic
+    xp = current_user.xp
+    if xp < 100: rank = "Novice"
+    elif xp < 500: rank = "Apprentice"
+    elif xp < 1000: rank = "Adept"
+    elif xp < 2000: rank = "Expert"
+    else: rank = "Master"
+
+    
+    # 3. Get Recent Activities (unified feed from all platform features)
+    from app.crud.activity import activity as activity_crud
+    
+    activities_data = activity_crud.get_recent_activities(current_user.email, limit=6)
+    
+    # Format activities for frontend with icons and colors
+    recent_activities = []
+    for activity in activities_data:
+        activity_type = activity.get("activity_type", "")
+        title = activity.get("title", "Unknown Activity")
+        timestamp = activity.get("timestamp", "")
+        
+        # Determine icon and color based on activity type
+        if activity_type == "TOPIC_COMPLETED":
+            icon = "✅"
+            color = "bg-green-500"
+        elif activity_type == "TOPIC_PRACTICING":
+            icon = "📚"
+            color = "bg-orange-500"
+        elif activity_type == "TOPIC_STARTED":
+            icon = "🚀"
+            color = "bg-purple-500"
+        elif activity_type == "COMPETITIVE_SOLVED":
+            icon = "💻"
+            color = "bg-blue-500"
+        elif activity_type == "INTERVIEW_COMPLETED":
+            icon = "🎤"
+            color = "bg-pink-500"
+        elif activity_type == "DIAGNOSTIC_TAKEN":
+            icon = "🧠"
+            color = "bg-indigo-500"
+        else:
+            icon = "📝"
+            color = "bg-gray-500"
+        
+        # Calculate time ago
+        from datetime import datetime
+        try:
+            updated_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            now = datetime.utcnow()
+            delta = now - updated_time.replace(tzinfo=None)
+            
+            if delta.days > 0:
+                time_ago = f"{delta.days} day{'s' if delta.days > 1 else ''} ago"
+            elif delta.seconds >= 3600:
+                hours = delta.seconds // 3600
+                time_ago = f"{hours} hour{'s' if hours > 1 else ''} ago"
+            else:
+                minutes = delta.seconds // 60
+                time_ago = f"{minutes} minute{'s' if minutes > 1 else ''} ago" if minutes > 0 else "Just now"
+        except:
+            time_ago = "Recently"
+        
+        recent_activities.append({
+            "title": title,
+            "time": time_ago,
+            "icon": icon,
+            "color": color
+        })
+
     return {
         "user_name": current_user.name,
-        "progress_percent": 15, # Still mock for now, requires traversing all topics
-        "current_topic": "Python Basics",
-        "selected_language": "Python",
-        "xp": current_user.xp,
+        "progress_percent": progress_percent,
+        "current_topic": "Python Basics", # Could be dynamic based on last active
+        "selected_language": "Python", # Could be dynamic
+        "xp": xp,
         "streak": current_user.streak_count,
-        "rank": "Novice" if current_user.xp < 100 else "Apprentice"
+        "rank": rank,
+        "mastered_topics": mastered_count,
+        "recent_activities": recent_activities
     }
 
 # from app.agents.content_generation_agent import ContentGenerationAgent
@@ -281,6 +381,8 @@ async def submit_topic_quiz(
     graph_result = app_graph.invoke(graph_input)
     result = graph_result.get("payload", {})
     
+    print(f"DEBUG: Graph result for {topic_id}: {result}")
+    
     # 2. Update DB via CRUD
     new_status_str = result.get("status", "NOT_ATTEMPTED")
     try:
@@ -303,11 +405,15 @@ async def submit_topic_quiz(
         "updatedAt": datetime.utcnow().isoformat()
     }
     
+    print(f"DEBUG: Attempting to save progress: {update_data}")
+
     # Determine if create or update
     if curr_progress:
         topic_progress.update(doc_id, update_data)
+        print("DEBUG: Updated existing progress doc")
     else:
         topic_progress.create(update_data, id=doc_id) # loose typing
+        print("DEBUG: Created new progress doc")
     
     # --- GAMIFICATION UPDATE ---
     from app.crud.user import user as user_crud
@@ -325,6 +431,35 @@ async def submit_topic_quiz(
         
     user_crud.update_gamification_stats(user_email, xp_gained=xp_to_award)
     # ---------------------------
+    
+    # --- ACTIVITY LOGGING ---
+    from app.crud.activity import activity as activity_crud
+    
+    # Determine activity type and title based on status
+    topic_name = unique_topic_id.replace("_", " ")
+    
+    if new_status == TopicStatus.MASTERED:
+        activity_type = "TOPIC_COMPLETED"
+        activity_title = f'Completed "{topic_name}"'
+    elif new_status == TopicStatus.WEAK:
+        activity_type = "TOPIC_PRACTICING"
+        activity_title = f'Practicing "{topic_name}"'
+    else:
+        activity_type = "TOPIC_STARTED"
+        activity_title = f'Started "{topic_name}"'
+    
+    # Log the activity
+    activity_crud.log_activity(
+        user_id=user_email,
+        activity_type=activity_type,
+        title=activity_title,
+        metadata={
+            "topic_id": unique_topic_id,
+            "language": language,
+            "score": result.get("score", 0),
+            "status": new_status.value
+        }
+    )
 
     return {
         "status": result["status"],

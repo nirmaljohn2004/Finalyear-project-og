@@ -29,6 +29,19 @@ async def submit_psychometric_test(submission: PsychometricTestSubmission, curre
     # Save behavior profile
     db.collection("behaviorProfiles").document(current_user.email).set(profile)
     
+    # Log activity
+    from app.crud.activity import activity as activity_crud
+    activity_crud.log_activity(
+        user_id=current_user.email,
+        activity_type="DIAGNOSTIC_TAKEN",
+        title="Completed Psychometric Test",
+        metadata={
+            "learning_preference": profile.get("learning_preference"),
+            "learning_speed": profile.get("learning_speed"),
+            "difficulty_comfort": profile.get("difficulty_comfort")
+        }
+    )
+    
     return BehaviorProfile(**profile)
 
 
