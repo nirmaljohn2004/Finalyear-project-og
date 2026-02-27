@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 from app.core.config import settings
 from typing import List, Dict
 
@@ -8,13 +8,13 @@ class LLMClient:
         print(f"DEBUG: LLMClient initializing. Key loaded: '{self.api_key[:10]}...' (len={len(self.api_key)})")
         if self.api_key and "YOUR_" not in self.api_key:
             try:
-                genai.configure(api_key=self.api_key)
-                # gemini-1.5-flash failed, using gemini-flash-latest from list
-                self.model = genai.GenerativeModel('gemini-flash-latest')
+                self.client = genai.Client(api_key=self.api_key)
+                # Reverting to Flash because Pro models have 0 quota on Free Tier
+                self.model_name = 'gemini-2.5-flash'
                 self.client_ready = True
-                print("DEBUG: LLMClient Ready (Real Gemini)")
+                print(f"DEBUG: LLMClient Ready (Real Gemini via genai Client, model: {self.model_name})")
             except Exception as e:
-                print(f"DEBUG: Failed to configure GenAI: {e}")
+                print(f"DEBUG: Failed to configure GenAI Client: {e}")
                 self.client_ready = False
         else:
             self.client_ready = False
@@ -28,7 +28,10 @@ class LLMClient:
             return self._mock_response(prompt)
         
         try:
-            response = self.model.generate_content(prompt)
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             return response.text
         except Exception as e:
             error_str = str(e).lower()
@@ -111,7 +114,10 @@ class LLMClient:
         full_prompt += "\nASSISTANT: "
 
         try:
-            response = self.model.generate_content(full_prompt, stream=True)
+            response = self.client.models.generate_content_stream(
+                model=self.model_name,
+                contents=full_prompt
+            )
             for chunk in response:
                 if chunk.text:
                     yield chunk.text

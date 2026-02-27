@@ -1,3 +1,4 @@
+
 # Project Setup Guide
 
 This guide will help you set up the EvoCode project on your local machine.
@@ -9,6 +10,26 @@ Ensure you have the following installed:
 - **Python (3.10 or higher)**: [Download Python](https://www.python.org/downloads/)
 - **Node.js (v18 or higher)**: [Download Node.js](https://nodejs.org/) (LTS version recommended)
 - **Visual Studio Code (optional but recommended)**: [Download VS Code](https://code.visualstudio.com/)
+
+---
+
+## ⚡ Quick Start Checklist (For New Developers)
+
+If you just cloned this repo, follow these exact steps to get up and running:
+
+1.  [ ] **Clone the repo**: `git clone ...`
+2.  [ ] **Ask the Team Lead** for `backend/.env` and `backend/serviceAccountKey.json`.
+3.  [ ] **Backend**:
+    *   `cd backend`
+    *   `python -m venv venv` -> `source venv/bin/activate` (or `.\venv\Scripts\activate`)
+    *   `pip install -r requirements.txt`
+    *   **Seed Database**: `python scripts/seed_db.py` (Crucial for first run!)
+    *   `uvicorn app.main:app --reload`
+4.  [ ] **Frontend**:
+    *   `cd frontend`
+    *   `npm install`
+    *   `npm run dev`
+5.  [ ] **Verify**: Open `http://localhost:5173` and log in.
 
 ---
 
@@ -160,9 +181,29 @@ The frontend will start (usually at `http://localhost:5173`). Open this link in 
 This project uses a graph-based AI architecture located in `backend/app/graph/`.
 - **Supervisor**: Routes requests based on intent.
 - **Skill Agent**: Reorders topics based on quiz performance.
-- **Content Agent**: Generates lessons adapted to your psychometric profile.
+- **Content Agent**: Generates lessons adapted to your psychometric profile, now powered by **RAG (Retrieval-Augmented Generation)** to ground answers in the official curriculum.
 
 ### Certificate Generation
 Certificates are generated as PDFs using `reportlab`.
 - Ensure `reportlab` is installed (`pip install reportlab`).
-- Certificates require at least "Attempting" the course (Strict 100% mastery check is currently relaxed for testing).
+- Certificates require at least "Attempting" the course.
+
+---
+
+## 6. New Features & Usage
+
+### 🧪 Automated Code Testing
+The platform now supports LeetCode-style automated testing for practice problems.
+- **How to use**: Go to a topic (e.g., Python Basics), scroll to the "Coding Challenge", and click "Run Code".
+- **Backend**: The system runs your code against hidden test cases using the Piston API.
+
+### 🏆 Competitive Arena
+A competitive programming section with dynamic problem loading.
+- **Features**: Leaderboards, Active Battles, and a Problem List.
+- **Data**: Problems are now fetched dynamically from the backend (`backend/app/data/problems.py`).
+- **Hard Porblems**: Try the new "Median of Two Sorted Arrays" challenge!
+
+### 📚 RAG System (Contextual AI)
+The AI Tutor now uses a ChromaDB vector store to search for relevant curriculum content before answering.
+- **Dependencies**: `chromadb`, `langchain`, `sentence-transformers` (included in `requirements.txt`).
+- **Note**: The first time you run the backend, it might take a moment to initialize the vector database.

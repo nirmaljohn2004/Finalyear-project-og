@@ -17,6 +17,11 @@ class UserBase(BaseModel):
     streak_count: int = 0
     last_active_date: Optional[str] = None # ISO format date string
 
+    # Competitive Stats
+    elo: int = 1200 # Default ELO
+    wins: int = 0
+    losses: int = 0
+
 class UserCreate(UserBase):
     password: str
 

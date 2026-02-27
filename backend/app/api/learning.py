@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+from google.cloud.firestore_v1.base_query import FieldFilter
 # from google.cloud import firestore # access via Model or CRUD
 from app.api.auth import get_current_user
 from app.models.user import UserBase
@@ -168,7 +169,7 @@ async def get_dashboard_summary(current_user: UserBase = Depends(get_current_use
     
     # Simple query should work now if we check for both Enum/String
     # But let's stick to the robust iteration since we know data is there.
-    all_progress_query = progress_ref.where("user_id", "==", current_user.email)
+    all_progress_query = progress_ref.where(filter=FieldFilter("user_id", "==", current_user.email))
     docs = list(all_progress_query.stream())
     
     mastered_count = 0

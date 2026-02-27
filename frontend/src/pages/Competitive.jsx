@@ -6,14 +6,44 @@ import api from '../api/axios';
 const Competitive = () => {
     const navigate = useNavigate();
 
-    // Mock Data
-    const userInfo = {
-        rank: 1240,
-        elo: 1450,
-        league: "Silver II",
-        wins: 45,
-        streak: 3
-    };
+    const [problems, setProblems] = useState([]);
+    const [userInfo, setUserInfo] = useState({
+        rank: "TBD",
+        elo: 1200,
+        league: "Unranked",
+        wins: 0,
+        streak: 0
+    });
+    const [leaderboard, setLeaderboard] = useState([]);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // 1. Fetch Problems
+                const resProblems = await api.get('/competitive/problems');
+                setProblems(resProblems.data.map(p => ({
+                    id: p.id,
+                    title: p.title,
+                    difficulty: p.difficulty,
+                    acceptance: "TBD",
+                    tags: p.tags || ["Algorithm"],
+                    url: `/competitive/problem/${p.id}`
+                })));
+
+                // 2. Fetch User Profile
+                const resProfile = await api.get('/competitive/profile');
+                setUserInfo(resProfile.data);
+
+                // 3. Fetch Leaderboard
+                const resLeaderboard = await api.get('/competitive/leaderboard');
+                setLeaderboard(resLeaderboard.data);
+
+            } catch (err) {
+                console.error("Failed to fetch competitive data", err);
+            }
+        };
+        fetchData();
+    }, []);
 
     const contests = [
         { id: 1, title: "Weekly Code Clash #45", startsIn: "2h 30m", participants: 342, prize: "500 XP" },
@@ -25,37 +55,6 @@ const Competitive = () => {
         { id: 101, title: "Array Manipulation", difficulty: "Medium", language: "Python", players: "1/2" },
         { id: 102, title: "Dynamic Programming Basics", difficulty: "Hard", language: "Java", players: "0/2" },
     ];
-
-    const leaderboard = [
-        { rank: 1, user: "CodeMaster99", elo: 2450, change: "+12" },
-        { rank: 2, user: "AlgoQueen", elo: 2410, change: "+5" },
-        { rank: 3, user: "BugHunter", elo: 2380, change: "-2" },
-        { rank: 4, user: "DevNinja", elo: 2350, change: "+20" },
-        { rank: 5, user: "SystemShock", elo: 2310, change: "+0" },
-    ];
-
-    const [problems, setProblems] = useState([]);
-
-    useEffect(() => {
-        const fetchProblems = async () => {
-            try {
-                const res = await api.get('/competitive/problems');
-                // Map backend data to UI format
-                const formattedProblems = res.data.map(p => ({
-                    id: p.id,
-                    title: p.title,
-                    difficulty: p.difficulty,
-                    acceptance: "TBD",
-                    tags: p.tags || ["Algorithm"],
-                    url: `/competitive/problem/${p.id}`
-                }));
-                setProblems(formattedProblems);
-            } catch (err) {
-                console.error("Failed to fetch competitive problems", err);
-            }
-        };
-        fetchProblems();
-    }, []);
 
     const getDifficultyColor = (diff) => {
         if (diff === "Easy") return "text-emerald-600 bg-emerald-50 border-emerald-200";

@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from app.core.state import AgentState
 from app.core.llm import llm_client
+from app.core.rag import rag_system
 
 def content_node(state: AgentState) -> Dict[str, Any]:
     """
@@ -25,7 +26,6 @@ def content_node(state: AgentState) -> Dict[str, Any]:
     # Fetch relevant curriculum content from ChromaDB
     rag_context = ""
     try:
-        from app.core.rag import rag_system
         # Query using the topic title + language
         query = f"{topic} in {language}"
         rag_context = rag_system.query_context(query, n_results=3)

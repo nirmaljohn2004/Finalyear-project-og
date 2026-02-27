@@ -2,6 +2,7 @@ from typing import List, Optional
 from app.crud.base import CRUDBase
 from pydantic import BaseModel
 from datetime import datetime
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 class ActivityCreate(BaseModel):
     user_id: str
@@ -55,7 +56,7 @@ class CRUDActivity(CRUDBase[BaseModel, ActivityCreate, BaseModel]):
         db = get_db()
         
         # Fetch all activities for this user
-        query = self.collection.where("user_id", "==", user_id)
+        query = self.collection.where(filter=FieldFilter("user_id", "==", user_id))
         docs = list(query.stream())
         
         # Convert to list of dicts

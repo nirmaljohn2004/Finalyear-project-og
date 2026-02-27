@@ -55,4 +55,29 @@ class CRUDUser(CRUDBase[BaseModel, BaseModel, BaseModel]):
         self.update(email, update_data)
         return update_data
 
+    def update_competitive_stats(self, email: str, elo_change: int, win: bool) -> dict:
+        """
+        Updates user competitive stats (ELO, wins, losses).
+        """
+        user_doc = self.get(email)
+        if not user_doc:
+            return {}
+            
+        current_elo = user_doc.get("elo", 1200)
+        current_wins = user_doc.get("wins", 0)
+        current_losses = user_doc.get("losses", 0)
+        
+        new_elo = max(0, current_elo + elo_change)
+        new_wins = current_wins + 1 if win else current_wins
+        new_losses = current_losses + 1 if not win else current_losses
+        
+        update_data = {
+            "elo": new_elo,
+            "wins": new_wins,
+            "losses": new_losses
+        }
+        
+        self.update(email, update_data)
+        return update_data
+
 user = CRUDUser("users")

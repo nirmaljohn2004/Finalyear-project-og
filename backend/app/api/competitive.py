@@ -56,3 +56,43 @@ async def submit_solution(problem_id: str, request: ExecutionRequest, current_us
         }
 
     return {"status": "Error", "message": f"Language '{language}' not supported for submission yet."}
+
+@router.get("/leaderboard")
+async def get_leaderboard():
+    from app.crud.user import user
+    # Fetch all users (Inefficient for large DBs, but fine for demo)
+    # CRUDBase might not have get_all, let's check or use firestore direct if needed.
+    # Assuming user.get_multi() or similar exists, or we just access the collection.
+    
+    # Using firestore direct for query
+    from app.db.firestore import get_db
+    db = get_db()
+    users_ref = db.collection("users")
+    # Sort by ELO descending, limit 10
+    query = users_ref.order_by("elo", direction="DESCENDING").limit(10)
+    docs = query.stream()
+    
+    leaderboard = []
+    rank = 1
+    for doc in docs:
+        u = doc.to_dict()
+        leaderboard.append({
+            "rank": rank,
+            "user": u.get("name", "Unknown"),
+            "elo": u.get("elo", 1200),
+            "change": "+0" # Mock change for now
+        })
+        rank += 1
+        
+    return leaderboard
+
+@router.get("/profile")
+async def get_competitive_profile(current_user: UserBase = Depends(get_current_user)):
+    # Return competitive stats for the logged-in user
+    return {
+        "rank": 0, # TBD: Calculate rank dynamically if needed
+        "elo": current_user.elo,
+        "league": "Silver II" if current_user.elo < 1500 else "Gold I", # Simple logic
+        "wins": current_user.wins,
+        "streak": current_user.streak_count # Reuse main streak
+    }

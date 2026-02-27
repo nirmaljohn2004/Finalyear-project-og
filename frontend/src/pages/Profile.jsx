@@ -298,6 +298,23 @@ const Profile = () => {
                             </div>
                         </div>
 
+                        {/* Competitive Stats Card */}
+                        <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-xl overflow-hidden relative">
+                            <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
+                                <span className="bg-violet-100 text-violet-600 p-1.5 rounded-lg"><Trophy size={16} /></span> Competitive
+                            </h2>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-violet-50 rounded-xl border border-violet-100 text-center">
+                                    <div className="text-xl font-black text-violet-600 mb-0.5">{user?.elo || 1200}</div>
+                                    <div className="text-[10px] font-bold text-violet-700 uppercase tracking-wider">ELO Rating</div>
+                                </div>
+                                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-center">
+                                    <div className="text-xl font-black text-emerald-600 mb-0.5">{user?.wins || 0}</div>
+                                    <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Wins</div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Skills Card */}
                         <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-xl">
                             <h2 className="text-base font-black text-gray-900 mb-4 flex items-center gap-2 uppercase tracking-wide">
