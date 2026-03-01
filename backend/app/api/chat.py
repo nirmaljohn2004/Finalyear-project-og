@@ -96,13 +96,20 @@ def chat_endpoint(request: ChatRequest, current_user: UserBase = Depends(get_cur
         result = app_graph.invoke(initial_state)
         
         # 3. Extract Response
-        # The result messages list will have the AIMessage appended at the end
+        # Nodes like 'chat' append an AIMessage. Nodes like 'content' return text in payload.
+        payload_data = result.get("payload", {})
         output_messages = result.get("messages", [])
-        if output_messages:
+        
+        if payload_data and "content" in payload_data and payload_data["content"]:
+            response_text = payload_data["content"]
+            print(f"DEBUG CHAT: Extracted response from payload: {response_text[:50]}...")
+        elif output_messages and isinstance(output_messages[-1], AIMessage):
             last_msg = output_messages[-1]
             response_text = last_msg.content
+            print(f"DEBUG CHAT: Extracted response from messages: {response_text[:50]}...")
         else:
-            response_text = "I couldn't generate a response."
+            response_text = "I processed your request, but could not format the output."
+            print("DEBUG CHAT: No AI message or payload content in output")
 
         # 4. Save to DB (Persistence)
         # Save User Message
@@ -126,3 +133,26 @@ def chat_endpoint(request: ChatRequest, current_user: UserBase = Depends(get_cur
             raise HTTPException(status_code=429, detail="Daily AI usage limit reached. Please try again tomorrow.")
         print(f"Chat Graph Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("")
+def clear_chat_history(current_user: UserBase = Depends(get_current_user)):
+    try:
+        db = get_db()
+        history_ref = db.collection("users").document(current_user.email).collection("chat_history")
+        
+        # Batch delete all documents in the subcollection
+        docs = history_ref.stream()
+        batch = db.batch()
+        deleted_count = 0
+        for doc in docs:
+            batch.delete(doc.reference)
+            deleted_count += 1
+            
+        # Commit the batch if there are documents
+        if deleted_count > 0:
+            batch.commit()
+            
+        return {"status": "success", "message": "Chat history cleared", "deleted_count": deleted_count}
+    except Exception as e:
+        print(f"Error clearing chat history: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear chat history")

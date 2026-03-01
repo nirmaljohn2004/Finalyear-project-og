@@ -69,6 +69,20 @@ const ChatSidebar = ({ onClose }) => {
         if (e.key === 'Enter') handleSend();
     };
 
+    const handleClearChat = async () => {
+        if (!window.confirm("Are you sure you want to clear your chat history?")) return;
+
+        try {
+            await api.delete("/chat");
+            setMessages([
+                { id: Date.now(), sender: 'ai', text: 'Chat history cleared. How can I help you today?' }
+            ]);
+        } catch (error) {
+            console.error("Failed to clear chat:", error);
+            alert("Failed to clear chat history. Please try again.");
+        }
+    };
+
     return (
         <aside className="w-80 bg-white border-l border-gray-200 flex flex-col h-full shadow-2xl z-30 transform transition-all duration-300 ease-in-out">
             <div className="p-3 border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10 flex justify-between items-center">
@@ -76,15 +90,27 @@ const ChatSidebar = ({ onClose }) => {
                     <span className="bg-blue-100 p-1 rounded-lg text-blue-600">⚡</span>
                     <span>AI Assistant</span>
                 </h2>
-                {/* Close Button */}
-                <button
-                    onClick={onClose}
-                    className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-all"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+                {/* Actions */}
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={handleClearChat}
+                        title="Clear Chat"
+                        className="text-gray-400 hover:text-red-500 hover:bg-neutral-100 p-1.5 rounded-full transition-all"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                    <button
+                        onClick={onClose}
+                        title="Close Sidebar"
+                        className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-full transition-all"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-4 bg-gray-50 scroll-smooth">
