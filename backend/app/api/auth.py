@@ -33,6 +33,18 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     
     if not user_data:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Normalize: Firebase login stores 'full_name', UserBase expects 'name'
+    if "name" not in user_data or not user_data.get("name"):
+        user_data["name"] = user_data.get("full_name") or user_data.get("email", "User")
+    
+    # Safe defaults for required/missing fields
+    user_data.setdefault("xp", 0)
+    user_data.setdefault("streak_count", 0)
+    user_data.setdefault("elo", 1200)
+    user_data.setdefault("wins", 0)
+    user_data.setdefault("losses", 0)
+    user_data.setdefault("skills", [])
         
     return UserBase(**user_data)
 
