@@ -7,12 +7,8 @@ const Learning = () => {
     const navigate = useNavigate();
 
     const handleLanguageSelect = (lang) => {
-        const savedLevel = localStorage.getItem(`lastLevel_${lang}`);
-        if (savedLevel) {
-            navigate(`/learning/${lang}?level=${savedLevel}`);
-        } else {
-            navigate(`/learning/${lang}`);
-        }
+        // Always go to level select — LevelSelect shows "Resumable" badge for existing paths
+        navigate(`/learning/${lang}`);
     };
 
     return (
